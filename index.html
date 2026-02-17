@@ -524,6 +524,8 @@ function calcMolarMass(formula){
    APP STATE
 -------------------------------- */
 const app = {
+  firstCorrect: 0,
+  firstAttempts: 0,
   practiceType: null, // 'balancing' | 'mole-to-mole' | 'mole-to-mass' | 'mass-to-mass'
   setSize: 5,
   qIndex: 0,
@@ -558,6 +560,8 @@ function restartSet(fromStart=false){
   }
   app.qIndex = 0;
   app.correct = 0;
+  app.firstCorrect = 0;
+  app.firstAttempts = 0;
   app.current = null;
   document.getElementById('feedbackBox').className = 'feedback';
   document.getElementById('feedbackBox').style.display = 'none';
@@ -832,10 +836,16 @@ function renderFeedback(ok, message, stepsHtml=''){
 }
 
 function updatePills(){
-  document.getElementById('pillrow').style.display = 'flex';
-  document.getElementById('setScore').textContent = `${app.correct} / ${app.qIndex}`;
-  const acc = app.qIndex > 0 ? Math.round((app.correct/app.qIndex)*100) : 0;
-  document.getElementById('setAcc').textContent = `${acc}%`;
+  const scoreEl = document.getElementById('scorePill');
+  const accEl = document.getElementById('accuracyPill');
+
+  scoreEl.textContent = `Set score: ${app.correct} / ${app.qIndex}`;
+
+  const acc = app.firstAttempts > 0
+    ? Math.round((app.firstCorrect / app.firstAttempts) * 100)
+    : 0;
+
+  accEl.textContent = `Accuracy: ${acc}%`;
 }
 
 /* -------------------------------
@@ -873,6 +883,12 @@ function submitAnswer(){
   const q = app.current;
   if(!q) return;
 
+  const isFirstAttempt = !q._attempted;
+  if(isFirstAttempt){
+    app.firstAttempts++;
+    q._attempted = true;
+  }
+
   // STOICHIOMETRY: one attempt per question (set-based)
   if(q.type === 'stoich'){
     const input = document.getElementById('stoichAnswer');
@@ -887,7 +903,10 @@ function submitAnswer(){
     const steps = `${escapeHtml(q.steps)}<br><span style="color:var(--muted);">Accepted if within rounding tolerance (±${tol.toFixed(2)})</span>`;
     q._lastFeedback = {ok, message: msg, stepsHtml: steps};
     renderFeedback(ok, msg, steps);
-    if(ok) app.correct++;
+    if(ok){
+      app.correct++;
+      if(isFirstAttempt) app.firstCorrect++;
+    }
 
     // advance to next question in the set
     app.qIndex++;
@@ -963,6 +982,7 @@ function submitAnswer(){
   }
 
   // solved: count it and advance
+  if(isFirstAttempt) app.firstCorrect++;
   app.correct++;
   app.qIndex++;
   updatePills();
