@@ -266,6 +266,62 @@
     /* Subscripts in formulas */
     .chem sub{font-size:.75em; vertical-align:baseline; position:relative; bottom:-0.2em;}
 
+    .navbtn{
+      background:#0d6efd;
+      color:white;
+      border:none;
+      padding:12px 18px;
+      border-radius:10px;
+      font-size:1rem;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .navbtn:hover{filter:brightness(0.95)}
+    .coef-ok{
+      border-color: #198754 !important;
+      background: #ecf8f1;
+    }
+    .coef-bad{
+      border-color: #dc3545 !important;
+      background: #fff1f2;
+    }
+    .coef-mark{
+      font-weight:1000;
+      margin-left:6px;
+    }
+    .coef-mark.ok{color:#198754}
+    .coef-mark.bad{color:#dc3545}
+
+    /* single-line balancing layout */
+    .balanceLine{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+      padding:12px;
+      border-radius:12px;
+      border:1px solid #e6eaef;
+      background: var(--soft);
+      overflow-x:auto;
+    }
+    .piece{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:nowrap;
+      white-space:nowrap;
+    }
+    .piece input{
+      width:86px;
+      font-size:1.15rem;
+      padding:10px 10px;
+      border-radius:10px;
+      border:2px solid #d5dbe1;
+    }
+    .piece input:focus{outline:none; border-color:var(--accent);}
+    .op{font-weight:1000; color:#234; margin:0 4px;}
+
     @media (max-width:720px){
       .container{padding:16px}
       h1{font-size:1.7rem}
@@ -337,7 +393,7 @@
             <input type="checkbox" id="showStepsChk" />
             Show steps
           </label>
-          <button class="ghost" onclick="backToHome()">Change type</button>
+          <button class="navbtn" onclick="backToHome()">Main menu</button>
         </div>
       </div>
 
@@ -345,6 +401,7 @@
 
       <div class="actions" id="actionRow">
         <button class="primary" id="submitBtn" onclick="submitAnswer()">Submit</button>
+        <button class="secondary" id="tryAgainBtn" onclick="tryAgain()" style="display:none;">Try again</button>
         <button class="secondary" id="nextBtn" onclick="nextQuestion()" style="display:none;">Next</button>
         <button class="ghost" onclick="restartSet()">Restart set</button>
       </div>
@@ -505,7 +562,9 @@ function restartSet(fromStart=false){
   document.getElementById('feedbackBox').className = 'feedback';
   document.getElementById('feedbackBox').style.display = 'none';
   document.getElementById('nextBtn').style.display = 'none';
+  document.getElementById('tryAgainBtn').style.display = 'none';
   document.getElementById('submitBtn').style.display = 'inline-block';
+  document.getElementById('nextBtn').textContent = 'Next';
   document.getElementById('pillrow').style.display = 'none';
 
   // label
@@ -676,22 +735,31 @@ function renderQuestion(q){
     `;
     setTimeout(()=>document.getElementById('stoichAnswer')?.focus(), 50);
   } else {
-    // balancing: stack reactants + products for readability
-    const rHtml = q.reactants.map((c,i)=> `
-      <div class="compoundRow">
-        <input type="number" min="1" step="1" inputmode="numeric" id="coef_r_${i}" placeholder="Coeff" />
-        <span class="chem">${formatEquationHTML(c)}</span>
-        ${i < q.reactants.length-1 ? '<span class="plus">+</span>' : ''}
-      </div>
-    `).join('');
+    // balancing: single-line equation layout (linear reading)
+    const parts = [];
+    q.reactants.forEach((c,i) => {
+      parts.push(`
+        <span class="piece">
+          <input type="number" min="1" step="1" inputmode="numeric" id="coef_r_${i}" placeholder="Coeff" />
+          <span class="chem">${formatEquationHTML(c)}</span>
+          <span class="coef-mark" id="mark_r_${i}" style="display:none;"></span>
+        </span>
+      `);
+      if(i < q.reactants.length-1) parts.push(`<span class="op">+</span>`);
+    });
 
-    const pHtml = q.products.map((c,i)=> `
-      <div class="compoundRow">
-        <input type="number" min="1" step="1" inputmode="numeric" id="coef_p_${i}" placeholder="Coeff" />
-        <span class="chem">${formatEquationHTML(c)}</span>
-        ${i < q.products.length-1 ? '<span class="plus">+</span>' : ''}
-      </div>
-    `).join('');
+    parts.push(`<span class="op">→</span>`);
+
+    q.products.forEach((c,i) => {
+      parts.push(`
+        <span class="piece">
+          <input type="number" min="1" step="1" inputmode="numeric" id="coef_p_${i}" placeholder="Coeff" />
+          <span class="chem">${formatEquationHTML(c)}</span>
+          <span class="coef-mark" id="mark_p_${i}" style="display:none;"></span>
+        </span>
+      `);
+      if(i < q.products.length-1) parts.push(`<span class="op">+</span>`);
+    });
 
     card.innerHTML = `
       <div class="qPrompt">Balance this equation (enter coefficients):</div>
@@ -703,18 +771,8 @@ function renderQuestion(q){
       </div>
       <div class="hint" id="hintBox">${q.hintHtml}</div>
 
-      <div class="balanceWrap">
-        <div class="side reactants">
-          <h3>Reactants</h3>
-          ${rHtml}
-        </div>
-
-        <div class="arrow">→</div>
-
-        <div class="side products">
-          <h3>Products</h3>
-          ${pHtml}
-        </div>
+      <div class="balanceLine" aria-label="Coefficient inputs">
+        ${parts.join('')}
       </div>
     `;
     setTimeout(()=>document.getElementById('coef_r_0')?.focus(), 50);
@@ -724,6 +782,39 @@ function renderQuestion(q){
 function toggleHint(){
   const el = document.getElementById('hintBox');
   if(el) el.classList.toggle('show');
+}
+
+
+function clearBalancingMarks(q){
+  if(!q || q.type !== 'balancing') return;
+  for(let i=0;i<q.reactants.length;i++){
+    const inp = document.getElementById(`coef_r_${i}`);
+    const mk  = document.getElementById(`mark_r_${i}`);
+    if(inp){ inp.classList.remove('coef-ok','coef-bad'); }
+    if(mk){ mk.style.display='none'; mk.textContent=''; mk.className='coef-mark'; }
+  }
+  for(let i=0;i<q.products.length;i++){
+    const inp = document.getElementById(`coef_p_${i}`);
+    const mk  = document.getElementById(`mark_p_${i}`);
+    if(inp){ inp.classList.remove('coef-ok','coef-bad'); }
+    if(mk){ mk.style.display='none'; mk.textContent=''; mk.className='coef-mark'; }
+  }
+}
+
+function tryAgain(){
+  const fb = document.getElementById('feedbackBox');
+  fb.className = 'feedback';
+  fb.style.display = 'none';
+  clearBalancingMarks(app.current);
+
+  document.getElementById('tryAgainBtn').style.display = 'none';
+  document.getElementById('submitBtn').style.display = 'inline-block';
+
+  if(app.current?.type === 'balancing'){
+    document.getElementById('coef_r_0')?.focus();
+  }else{
+    document.getElementById('stoichAnswer')?.focus();
+  }
 }
 
 function renderFeedback(ok, message, stepsHtml=''){
@@ -757,7 +848,9 @@ function nextQuestion(isFirst=false){
   }
 
   document.getElementById('nextBtn').style.display = 'none';
+  document.getElementById('tryAgainBtn').style.display = 'none';
   document.getElementById('submitBtn').style.display = 'inline-block';
+  document.getElementById('nextBtn').textContent = 'Next';
 
   // generate one question
   if(app.practiceType === 'balancing'){
@@ -768,6 +861,7 @@ function nextQuestion(isFirst=false){
   app.current._lastFeedback = null;
 
   renderQuestion(app.current);
+  clearBalancingMarks(app.current);
 
   if(!isFirst){
     // show set score pills after question 2+ (progressive reveal)
@@ -779,6 +873,7 @@ function submitAnswer(){
   const q = app.current;
   if(!q) return;
 
+  // STOICHIOMETRY: one attempt per question (set-based)
   if(q.type === 'stoich'){
     const input = document.getElementById('stoichAnswer');
     const user = parseFloat(input?.value);
@@ -794,46 +889,88 @@ function submitAnswer(){
     renderFeedback(ok, msg, steps);
     if(ok) app.correct++;
 
-  } else {
-    // balancing
-    const userCoeffs = [];
-    // gather reactant coefficients then products
-    for(let i=0;i<q.reactants.length;i++){
-      const val = parseInt(document.getElementById(`coef_r_${i}`)?.value, 10);
-      if(Number.isNaN(val) || val < 1){
-        renderFeedback(false, 'Fill in all coefficients with whole numbers ≥ 1.');
-        return;
-      }
-      userCoeffs.push(val);
-    }
-    for(let i=0;i<q.products.length;i++){
-      const val = parseInt(document.getElementById(`coef_p_${i}`)?.value, 10);
-      if(Number.isNaN(val) || val < 1){
-        renderFeedback(false, 'Fill in all coefficients with whole numbers ≥ 1.');
-        return;
-      }
-      userCoeffs.push(val);
-    }
-    const ok = JSON.stringify(userCoeffs) === JSON.stringify(q.answer);
-    const msg = ok ? '✓ Correct!' : '✗ Not quite.';
-    const steps = `${escapeHtml(q.steps)}`;
-    q._lastFeedback = {ok, message: msg, stepsHtml: steps};
-    renderFeedback(ok, msg, steps);
-    if(ok) app.correct++;
+    // advance to next question in the set
+    app.qIndex++;
+    updatePills();
+
+    document.getElementById('submitBtn').style.display = 'none';
+    document.getElementById('tryAgainBtn').style.display = 'none';
+    document.getElementById('nextBtn').style.display = 'inline-block';
+    document.getElementById('nextBtn').textContent = (app.qIndex >= app.setSize) ? 'View results' : 'Next';
+    return;
   }
 
-  // advance state
+  // BALANCING: keep same question until fully correct; show partial correctness
+  clearBalancingMarks(q);
+
+  const correctness = [];
+
+  // reactants first
+  for(let i=0;i<q.reactants.length;i++){
+    const el = document.getElementById(`coef_r_${i}`);
+    const val = parseInt(el?.value, 10);
+    if(Number.isNaN(val) || val < 1){
+      renderFeedback(false, 'Fill in all coefficients with whole numbers ≥ 1.');
+      return;
+    }
+    const isOk = val === q.answer[i];
+    correctness.push(isOk);
+
+    const mk = document.getElementById(`mark_r_${i}`);
+    if(el){ el.classList.add(isOk ? 'coef-ok' : 'coef-bad'); }
+    if(mk){
+      mk.style.display = 'inline';
+      mk.textContent = isOk ? '✓' : '✗';
+      mk.classList.add(isOk ? 'ok' : 'bad');
+    }
+  }
+
+  // then products
+  for(let i=0;i<q.products.length;i++){
+    const el = document.getElementById(`coef_p_${i}`);
+    const val = parseInt(el?.value, 10);
+    if(Number.isNaN(val) || val < 1){
+      renderFeedback(false, 'Fill in all coefficients with whole numbers ≥ 1.');
+      return;
+    }
+    const idx = q.reactants.length + i;
+    const isOk = val === q.answer[idx];
+    correctness.push(isOk);
+
+    const mk = document.getElementById(`mark_p_${i}`);
+    if(el){ el.classList.add(isOk ? 'coef-ok' : 'coef-bad'); }
+    if(mk){
+      mk.style.display = 'inline';
+      mk.textContent = isOk ? '✓' : '✗';
+      mk.classList.add(isOk ? 'ok' : 'bad');
+    }
+  }
+
+  const numOk = correctness.filter(Boolean).length;
+  const total = correctness.length;
+  const allOk = numOk === total;
+
+  const msg = allOk ? '✓ Correct!' : `✗ Not yet. ${numOk} of ${total} coefficients are correct.`;
+  const steps = `${escapeHtml(q.steps)}`;
+  q._lastFeedback = {ok: allOk, message: msg, stepsHtml: steps};
+  renderFeedback(allOk, msg, steps);
+
+  if(!allOk){
+    document.getElementById('submitBtn').style.display = 'none';
+    document.getElementById('nextBtn').style.display = 'none';
+    document.getElementById('tryAgainBtn').style.display = 'inline-block';
+    return;
+  }
+
+  // solved: count it and advance
+  app.correct++;
   app.qIndex++;
   updatePills();
 
   document.getElementById('submitBtn').style.display = 'none';
+  document.getElementById('tryAgainBtn').style.display = 'none';
   document.getElementById('nextBtn').style.display = 'inline-block';
-
-  if(app.qIndex >= app.setSize){
-    document.getElementById('nextBtn').textContent = 'View results';
-  } else {
-    document.getElementById('nextBtn').textContent = 'Next';
-  }
+  document.getElementById('nextBtn').textContent = (app.qIndex >= app.setSize) ? 'View results' : 'Next';
 }
 
 function showSummary(){
