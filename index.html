@@ -389,11 +389,7 @@
           <div class="progress" id="progressLabel">Question 1 of 5</div>
         </div>
         <div class="right">
-          <label class="chk" title="Shows solution steps after you submit.">
-            <input type="checkbox" id="showStepsChk" />
-            Show steps
-          </label>
-          <button class="navbtn" onclick="backToHome()">Main menu</button>
+<button class="navbtn" onclick="backToHome()">Main menu</button>
         </div>
       </div>
 
@@ -531,7 +527,6 @@ const app = {
   qIndex: 0,
   correct: 0,
   current: null,
-  showSteps: false
 };
 
 function showScreen(id){
@@ -584,8 +579,6 @@ function restartSet(fromStart=false){
   nextQuestion(true);
 }
 
-document.getElementById('showStepsChk').addEventListener('change', (e) => {
-  app.showSteps = !!e.target.checked;
   // if feedback already shown, re-render it with/without steps
   if(app.current && app.current._lastFeedback){
     renderFeedback(app.current._lastFeedback.ok, app.current._lastFeedback.message, app.current._lastFeedback.stepsHtml);
@@ -1010,9 +1003,8 @@ function submitAnswer(){
   // not correct, attempts 1-2
   if(q._attemptCount < 3){
     const msg = `✗ Not yet. ${numOk} of ${total} coefficients are correct.`;
-    const steps = `${escapeHtml(q.steps)}`;
-    q._lastFeedback = {ok:false, message: msg, stepsHtml: steps};
-    renderFeedback(false, msg, steps);
+    q._lastFeedback = {ok:false, message: msg, stepsHtml: ''};
+    renderFeedback(false, msg, '');
 
     document.getElementById('submitBtn').style.display = 'none';
     document.getElementById('nextBtn').style.display = 'none';
@@ -1086,8 +1078,6 @@ document.getElementById('titleTap').addEventListener('click', () => {
   tapCount++;
   if(tapCount === 7){
     // enable steps by default as a hidden teacher-ish shortcut
-    document.getElementById('showStepsChk').checked = true;
-    app.showSteps = true;
     if(app.current && app.current._lastFeedback){
       renderFeedback(app.current._lastFeedback.ok, app.current._lastFeedback.message, app.current._lastFeedback.stepsHtml);
     }
