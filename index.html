@@ -338,8 +338,7 @@
       <p class="sub">One question at a time • fast feedback • phone-friendly</p>
       <div class="pillrow" id="pillrow" style="display:none;">
         <div class="pill">Set score: <b id="setScore">0 / 0</b></div>
-        <div class="pill">First-try accuracy: <b id="setAcc">0%</b></div>
-        <div class="pill">Overall accuracy: <b id="setAccAll">0%</b></div>
+        <div class="pill">Accuracy: <b id="setAcc">0%</b></div>
       </div>
     </header>
 
@@ -523,12 +522,8 @@ function calcMolarMass(formula){
 const app = {
   firstCorrect: 0,
   firstAttempts: 0,
-  totalSubmissions: 0,
-  totalCorrectSubmissions: 0,
-  setQuestions: [],
-  usedEq: new Set(),
   practiceType: null, // 'balancing' | 'mole-to-mole' | 'mole-to-mass' | 'mass-to-mass'
-  setSize: 25,
+  setSize: 5,
   qIndex: 0,
   correct: 0,
   current: null,
@@ -563,8 +558,6 @@ function restartSet(fromStart=false){
   app.correct = 0;
   app.firstCorrect = 0;
   app.firstAttempts = 0;
-  app.totalSubmissions = 0;
-  app.totalCorrectSubmissions = 0;
   app.current = null;
   document.getElementById('feedbackBox').className = 'feedback';
   document.getElementById('feedbackBox').style.display = 'none';
@@ -584,9 +577,6 @@ function restartSet(fromStart=false){
   document.getElementById('modeLabel').textContent = labelMap[app.practiceType] || 'Practice';
 
   showScreen('practiceScreen');
-
-  // build a full set up-front to enforce no repeats
-  app.setQuestions = buildSetQuestions(app.practiceType, app.setSize);
   nextQuestion(true);
 }
 
@@ -613,183 +603,92 @@ function getReactionForStoich(){
   return pickOne(bag);
 }
 
-/* -------------------------------
-   BALANCING GENERATOR (Template-based)
--------------------------------- */
-
-// element pools (common HS chemistry symbols)
-const METALS = ['Na','Mg','Al','K','Ca','Fe','Cu','Zn'];
-const NONMETALS = ['H','C','N','O','S','Cl','F'];
-
-// helper: random pick
-function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-function pickDistinct(arr, disallow){
-  let x = pick(arr);
-  while(disallow.has(x)) x = pick(arr);
-  return x;
+function getReactionForBalancing(){
+  // balancing: standard breadth, includes harder for variety but not constant "evil"
+  const pools = ['easy','medium','hard'];
+  const bag = [];
+  pools.forEach(k => bag.push(...reactionPools[k]));
+  return pickOne(bag);
 }
 
-// parse a simple chemical formula (no parentheses)
-function parseFormula(formula){
-  const counts = {};
-  const reEl = /([A-Z][a-z]?)(\d*)/g;
-  let m;
-  while((m = reEl.exec(formula)) !== null){
-    const el = m[1];
-    const n = m[2] ? parseInt(m[2],10) : 1;
-    counts[el] = (counts[el]||0) + n;
-  }
-  return counts;
-}
-function unionElements(compounds){
-  const s = new Set();
-  compounds.forEach(f=>{
-    const c = parseFormula(f);
-    Object.keys(c).forEach(k=>s.add(k));
-  });
-  return Array.from(s);
-}
-function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ const t=a%b; a=b; b=t; } return a||1; }
-function gcdAll(arr){ return arr.reduce((g,x)=>gcd(g,x),0); }
+function generateStoichQuestion(kind){
+  const reaction = getReactionForStoich();
 
-// brute-force balance search (small equations)
-function balanceBruteforce(reactants, products, maxCoef=12){
-  const comps = reactants.concat(products);
-  const elems = unionElements(comps);
-  const rc = reactants.map(parseFormula);
-  const pc = products.map(parseFormula);
+  // given (reactant) -> find (product)
+  const givenCompound = pickOne(reaction.reactants);
+  const givenFormula  = givenCompound.replace(/^(\d+)/,'');
+  const givenCoeff    = parseFloat((givenCompound.match(/^(\d+)/)||[])[1] || 1);
 
-  const nR = reactants.length;
-  const nP = products.length;
-  const n = nR + nP;
+  const distinctProducts = reaction.products.filter(c => c.replace(/^(\d+)/,'') !== givenFormula);
+  const productPool = distinctProducts.length ? distinctProducts : reaction.products;
 
-  const coeffs = new Array(n).fill(1);
+  const findCompound = pickOne(productPool);
+  const findFormula  = findCompound.replace(/^(\d+)/,'');
+  const findCoeff    = parseFloat((findCompound.match(/^(\d+)/)||[])[1] || 1);
 
-  function okWithCoeffs(){
-    for(const el of elems){
-      let left = 0, right = 0;
-      for(let i=0;i<nR;i++) left += (rc[i][el]||0) * coeffs[i];
-      for(let j=0;j<nP;j++) right += (pc[j][el]||0) * coeffs[nR+j];
-      if(left !== right) return false;
-    }
-    return true;
-  }
+  const eqPlain = reaction.reactants.join(' + ') + ' \u2192 ' + reaction.products.join(' + ');
+  const eqHTML  = formatEquationHTML(eqPlain);
 
-  // fix first coefficient to 1 to reduce equivalent solutions
-  coeffs[0] = 1;
+  let promptHtml = '';
+  let answer = 0;
+  let tol = 0.5;
+  let unitsHtml = '';
+  let steps = '';
+  let hintExtra = '';
 
-  function dfs(idx){
-    if(idx === n){
-      return okWithCoeffs() ? coeffs.slice() : null;
-    }
-    for(let v=1; v<=maxCoef; v++){
-      coeffs[idx] = v;
-      const res = dfs(idx+1);
-      if(res) return res;
-    }
-    return null;
+  if(kind === 'mole-to-mole'){
+    const givenAmount = Number(((Math.random()*9.5)+0.5).toFixed(1));
+    answer = Number((givenAmount * findCoeff / givenCoeff).toFixed(3));
+    tol = 0.5;
+    promptHtml = `If you have <b>${givenAmount} moles</b> of <span class="chem">${formatEquationHTML(givenFormula)}</span>, how many <b>moles</b> of <span class="chem">${formatEquationHTML(findFormula)}</span> can be produced?`;
+    unitsHtml = `moles of <span class="chem">${formatEquationHTML(findFormula)}</span>`;
+    steps = `${givenAmount} mol ${givenFormula} × (${findCoeff} mol ${findFormula} / ${givenCoeff} mol ${givenFormula}) = ${answer} mol ${findFormula}`;
+    hintExtra = `<b>Mole ratio:</b> ${findCoeff} mol <span class="chem">${formatEquationHTML(findFormula)}</span> per ${givenCoeff} mol <span class="chem">${formatEquationHTML(givenFormula)}</span>`;
+
+  }else if(kind === 'mole-to-mass'){
+    const mmFind = calcMolarMass(findFormula);
+    const givenAmount = Number(((Math.random()*9.5)+0.5).toFixed(1));
+    const molesFind = givenAmount * findCoeff / givenCoeff;
+    answer = Number((molesFind * mmFind).toFixed(2));
+    tol = answer * 0.02;
+    promptHtml = `If you have <b>${givenAmount} moles</b> of <span class="chem">${formatEquationHTML(givenFormula)}</span>, how many <b>grams</b> of <span class="chem">${formatEquationHTML(findFormula)}</span> can be produced?`;
+    unitsHtml = `grams of <span class="chem">${formatEquationHTML(findFormula)}</span>`;
+    steps = `${givenAmount} mol ${givenFormula} × (${findCoeff}/${givenCoeff}) = ${molesFind.toFixed(4)} mol ${findFormula}; × ${mmFind.toFixed(3)} g/mol = ${answer} g`;
+    hintExtra = `<b>Mole ratio:</b> ${findCoeff} mol <span class="chem">${formatEquationHTML(findFormula)}</span> per ${givenCoeff} mol <span class="chem">${formatEquationHTML(givenFormula)}</span><br><b>Molar mass of <span class="chem">${formatEquationHTML(findFormula)}</span>:</b> ${mmFind.toFixed(3)} g/mol`;
+
+  }else{ // mass-to-mass
+    const mmGiven = calcMolarMass(givenFormula);
+    const mmFind  = calcMolarMass(findFormula);
+    const gramsGiven = Number((Math.random()*195 + 5).toFixed(1));
+    const molesGiven = gramsGiven / mmGiven;
+    const molesFind  = molesGiven * findCoeff / givenCoeff;
+    answer = Number((molesFind * mmFind).toFixed(2));
+    tol = answer * 0.02;
+    promptHtml = `If you have <b>${gramsGiven} grams</b> of <span class="chem">${formatEquationHTML(givenFormula)}</span>, how many <b>grams</b> of <span class="chem">${formatEquationHTML(findFormula)}</span> can be produced?`;
+    unitsHtml = `grams of <span class="chem">${formatEquationHTML(findFormula)}</span>`;
+    steps = `${gramsGiven} g ${givenFormula} ÷ ${mmGiven.toFixed(3)} g/mol = ${molesGiven.toFixed(4)} mol; × (${findCoeff}/${givenCoeff}) = ${molesFind.toFixed(4)} mol ${findFormula}; × ${mmFind.toFixed(3)} g/mol = ${answer} g`;
+    hintExtra = `<b>Molar mass of <span class="chem">${formatEquationHTML(givenFormula)}</span>:</b> ${mmGiven.toFixed(3)} g/mol<br><b>Mole ratio:</b> ${findCoeff} mol <span class="chem">${formatEquationHTML(findFormula)}</span> per ${givenCoeff} mol <span class="chem">${formatEquationHTML(givenFormula)}</span><br><b>Molar mass of <span class="chem">${formatEquationHTML(findFormula)}</span>:</b> ${mmFind.toFixed(3)} g/mol`;
   }
 
-  const res = dfs(1);
-  if(!res) return null;
-
-  const g = gcdAll(res);
-  return res.map(x=>x/g);
-}
-
-// Build a plausible template reaction, then balance it
-function makeTemplateReaction(){
-  const template = Math.floor(Math.random()*6); // 0..5
-
-  // combustion: CxHy + O2 -> CO2 + H2O
-  if(template === 4){
-    const x = Math.floor(Math.random()*4)+1; // 1..4
-    const y = (Math.floor(Math.random()*4)+1)*2; // even 2..8
-    const hydro = `C${x===1?'':x}H${y===1?'':y}`;
-    return { reactants:[hydro, 'O2'], products:['CO2','H2O'] };
-  }
-
-  // acid-base: HA + BOH -> BA + H2O (monoprotic / monohydroxide)
-  if(template === 5){
-    const A = pickDistinct(NONMETALS, new Set(['H','O']));
-    const B = pick(METALS);
-    const acid = `H${A}`;
-    const base = `${B}OH`;
-    const salt = `${B}${A}`;
-    return { reactants:[acid, base], products:[salt, 'H2O'] };
-  }
-
-  // synthesis: A + B -> A_mB_n
-  if(template === 0){
-    const A = pick(METALS);
-    const B = pickDistinct(NONMETALS, new Set(['H','C','N']));
-    const m = Math.floor(Math.random()*3)+1;
-    const n = Math.floor(Math.random()*3)+1;
-    const prod = `${A}${m===1?'':m}${B}${n===1?'':n}`;
-    return { reactants:[A, B], products:[prod] };
-  }
-
-  // decomposition: AB -> A + B
-  if(template === 1){
-    const A = pick(METALS);
-    const B = pickDistinct(NONMETALS, new Set(['C','N']));
-    const m = Math.floor(Math.random()*3)+1;
-    const n = Math.floor(Math.random()*3)+1;
-    const comp = `${A}${m===1?'':m}${B}${n===1?'':n}`;
-    return { reactants:[comp], products:[A, B] };
-  }
-
-  // single replacement: A + BC -> AC + B
-  if(template === 2){
-    const A = pick(METALS);
-    const B = pickDistinct(METALS, new Set([A]));
-    const C = pickDistinct(NONMETALS, new Set(['H','C','N']));
-    const bSub = Math.floor(Math.random()*3)+1;
-    const cSub = Math.floor(Math.random()*3)+1;
-    const BC = `${B}${bSub===1?'':bSub}${C}${cSub===1?'':cSub}`;
-    const aSub = Math.floor(Math.random()*3)+1;
-    const AC = `${A}${aSub===1?'':aSub}${C}${cSub===1?'':cSub}`;
-    return { reactants:[A, BC], products:[AC, B] };
-  }
-
-  // double replacement: AB + CD -> AD + CB
-  const A = pick(METALS);
-  const C = pickDistinct(METALS, new Set([A]));
-  const B = pickDistinct(NONMETALS, new Set(['H','C','N']));
-  const D = pickDistinct(NONMETALS, new Set(['H','C','N',B]));
-  const aSub = Math.floor(Math.random()*3)+1;
-  const bSub = Math.floor(Math.random()*3)+1;
-  const cSub = Math.floor(Math.random()*3)+1;
-  const dSub = Math.floor(Math.random()*3)+1;
-  const AB = `${A}${aSub===1?'':aSub}${B}${bSub===1?'':bSub}`;
-  const CD = `${C}${cSub===1?'':cSub}${D}${dSub===1?'':dSub}`;
-  const AD = `${A}${aSub===1?'':aSub}${D}${dSub===1?'':dSub}`;
-  const CB = `${C}${cSub===1?'':cSub}${B}${bSub===1?'':bSub}`;
-  return { reactants:[AB, CD], products:[AD, CB] };
-}
-
-function generateBalancedReaction(){
-  for(let tries=0; tries<200; tries++){
-    const rxn = makeTemplateReaction();
-    const coeffs = balanceBruteforce(rxn.reactants, rxn.products, 12);
-    if(!coeffs) continue;
-    if(coeffs.some(c=>c>10)) continue;
-
-    const nR = rxn.reactants.length;
-    const rWith = rxn.reactants.map((f,i)=>`${coeffs[i]}${f}`);
-    const pWith = rxn.products.map((f,i)=>`${coeffs[nR+i]}${f}`);
-
-    return { reactants:rWith, products:pWith, plainReactants:rxn.reactants, plainProducts:rxn.products, coeffs };
-  }
-  return { reactants:['2H2','1O2'], products:['2H2O'], plainReactants:['H2','O2'], plainProducts:['H2O'], coeffs:[2,1,2] };
+  return {
+    type:'stoich',
+    kind,
+    eqHTML,
+    promptHtml,
+    answer,
+    tol,
+    unitsHtml,
+    steps,
+    hintHtml: `<b>Balanced equation:</b> <span class="chem">${eqHTML}</span><br>${hintExtra}`
+  };
 }
 
 function generateBalancingQuestion(){
-  const reaction = generateBalancedReaction();
+  const reaction = getReactionForBalancing();
 
-  const reactants = reaction.plainReactants.slice();
-  const products  = reaction.plainProducts.slice();
-  const correctCoeffs = reaction.coeffs.slice();
+  const reactants = reaction.reactants.map(r => r.replace(/^(\d+)/,''));
+  const products  = reaction.products.map(p => p.replace(/^(\d+)/,''));
+  const correctCoeffs = reaction.reactants.concat(reaction.products).map(c => parseInt((c.match(/^(\d+)/)||[])[1] || 1, 10));
 
   const eqPlain = reactants.join(' + ') + ' \u2192 ' + products.join(' + ');
   const eqHTML = formatEquationHTML(eqPlain);
@@ -800,55 +699,10 @@ function generateBalancingQuestion(){
     allCompounds: reactants.concat(products),
     eqHTML,
     answer: correctCoeffs,
-    steps: `Balanced equation: ${reaction.reactants.join(' + ')} → ${reaction.products.join(' + ')}`,
+    steps: `Correct coefficients: ${reaction.reactants.join(' + ')} → ${reaction.products.join(' + ')}`,
     hintHtml: `<b>Tip:</b> Count atoms on each side.<br><b>Strategy:</b> Start with the most complex compound.`
   };
 }
-
-function buildSetQuestions(practiceType, size){
-  const out = [];
-  const localUsed = new Set();
-
-  if(practiceType === 'balancing'){
-    let guard = 0;
-    while(out.length < size && guard < 5000){
-      guard++;
-      const q = generateBalancingQuestion();
-      const key = q.reactants.join('+') + '->' + q.products.join('+');
-      if(localUsed.has(key)) continue;
-      if(app.usedEq.has(key)) continue;
-
-      localUsed.add(key);
-      app.usedEq.add(key);
-      out.push(q);
-
-      if(app.usedEq.size > 800) app.usedEq.clear();
-    }
-    while(out.length < size){
-      const q = generateBalancingQuestion();
-      const key = q.reactants.join('+') + '->' + q.products.join('+');
-      if(localUsed.has(key)) continue;
-      localUsed.add(key);
-      out.push(q);
-    }
-    return out;
-  }
-
-  let guard = 0;
-  while(out.length < size && guard < 5000){
-    guard++;
-    const q = generateStoichQuestion(practiceType);
-    const key = q.prompt || q.eqHTML || JSON.stringify(q);
-    if(localUsed.has(key)) continue;
-    localUsed.add(key);
-    out.push(q);
-  }
-  while(out.length < size){
-    out.push(generateStoichQuestion(practiceType));
-  }
-  return out;
-}
-
 
 /* -------------------------------
    RENDER
@@ -992,15 +846,10 @@ function updatePills(){
   document.getElementById('pillrow').style.display = 'flex';
   document.getElementById('setScore').textContent = `${app.correct} / ${app.qIndex}`;
 
-  const firstAcc = app.firstAttempts > 0
+  const acc = app.firstAttempts > 0
     ? Math.round((app.firstCorrect / app.firstAttempts) * 100)
     : 0;
-  document.getElementById('setAcc').textContent = `${firstAcc}%`;
-
-  const overallAcc = app.totalSubmissions > 0
-    ? Math.round((app.totalCorrectSubmissions / app.totalSubmissions) * 100)
-    : 0;
-  document.getElementById('setAccAll').textContent = `${overallAcc}%`;
+  document.getElementById('setAcc').textContent = `${acc}%`;
 }
 
 /* -------------------------------
@@ -1017,7 +866,12 @@ function nextQuestion(isFirst=false){
   document.getElementById('submitBtn').style.display = 'inline-block';
   document.getElementById('nextBtn').textContent = 'Next';
 
-  app.current = app.setQuestions[app.qIndex];
+  // generate one question
+  if(app.practiceType === 'balancing'){
+    app.current = generateBalancingQuestion();
+  } else {
+    app.current = generateStoichQuestion(app.practiceType);
+  }
   app.current._lastFeedback = null;
 
   renderQuestion(app.current);
@@ -1025,6 +879,7 @@ function nextQuestion(isFirst=false){
   setBalancingInputsDisabled(app.current, false);
 
   if(!isFirst){
+    // show set score pills after question 2+ (progressive reveal)
     if(app.qIndex >= 1) updatePills();
   }
 }
@@ -1032,8 +887,6 @@ function nextQuestion(isFirst=false){
 function submitAnswer(){
   const q = app.current;
   if(!q) return;
-
-  app.totalSubmissions++;
 
   // FIRST-TRY ACCURACY: count only the first time they submit on this question
   const isFirstAttempt = !q._attempted;
@@ -1059,7 +912,6 @@ function submitAnswer(){
 
     if(ok){
       app.correct++;
-      app.totalCorrectSubmissions++;
       if(isFirstAttempt) app.firstCorrect++;
     }
 
@@ -1139,7 +991,6 @@ function submitAnswer(){
     renderFeedback(true, msg, steps);
 
     app.correct++;
-    app.totalCorrectSubmissions++;
     if(isFirstAttempt) app.firstCorrect++;
 
     app.qIndex++;
@@ -1213,17 +1064,12 @@ function submitAnswer(){
 
 function showSummary(){
   showScreen('summaryScreen');
-
-  const firstAcc = app.firstAttempts > 0 ? Math.round((app.firstCorrect/app.firstAttempts)*100) : 0;
-  const overallAcc = app.totalSubmissions > 0 ? Math.round((app.totalCorrectSubmissions/app.totalSubmissions)*100) : 0;
-
+  const acc = app.firstAttempts > 0 ? Math.round((app.firstCorrect/app.firstAttempts)*100) : 0;
   document.getElementById('finalScore').textContent = `${app.correct} / ${app.setSize}`;
-  document.getElementById('finalNote').textContent = `First-try accuracy: ${firstAcc}% • Overall accuracy: ${overallAcc}% • Total submits: ${app.totalSubmissions}`;
-
+  document.getElementById('finalNote').textContent = `Accuracy (first try): ${acc}%`;
   document.getElementById('pillrow').style.display = 'flex';
   document.getElementById('setScore').textContent = `${app.correct} / ${app.setSize}`;
-  document.getElementById('setAcc').textContent = `${firstAcc}%`;
-  document.getElementById('setAccAll').textContent = `${overallAcc}%`;
+  document.getElementById('setAcc').textContent = `${acc}%`;
 }
 
 /* -------------------------------
