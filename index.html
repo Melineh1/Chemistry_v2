@@ -837,16 +837,13 @@ function tryAgain(){
 
 function renderFeedback(ok, message, stepsHtml=''){
   const fb = document.getElementById('feedbackBox');
-  fb.className = 'feedback ' + (ok ? 'ok' : 'bad');
+  fb.className = ok ? 'feedback good' : 'feedback bad';
   let html = message;
-  if(app.showSteps && stepsHtml){
+  if(stepsHtml && stepsHtml.trim().length){
     html += `<div class="steps">${stepsHtml}</div>`;
   }
   fb.innerHTML = html;
   fb.style.display = 'block';
-
-  // scroll feedback into view on phones
-  setTimeout(()=>fb.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
 }
 
 function updatePills(){
@@ -939,6 +936,7 @@ function submitAnswer(){
   clearBalancingMarks(q);
 
   const correctness = [];
+  const userCoeffs = [];
 
   // reactants first
   for(let i=0;i<q.reactants.length;i++){
@@ -948,6 +946,7 @@ function submitAnswer(){
       renderFeedback(false, 'Fill in all coefficients with whole numbers ≥ 1.');
       return;
     }
+    userCoeffs.push(val);
     const isOk = val === q.answer[i];
     correctness.push(isOk);
 
@@ -968,6 +967,7 @@ function submitAnswer(){
       renderFeedback(false, 'Fill in all coefficients with whole numbers ≥ 1.');
       return;
     }
+    userCoeffs.push(val);
     const idx = q.reactants.length + i;
     const isOk = val === q.answer[idx];
     correctness.push(isOk);
@@ -1007,7 +1007,7 @@ function submitAnswer(){
     return;
   }
 
-  // not correct
+  // not correct, attempts 1-2
   if(q._attemptCount < 3){
     const msg = `✗ Not yet. ${numOk} of ${total} coefficients are correct.`;
     const steps = `${escapeHtml(q.steps)}`;
@@ -1020,24 +1020,42 @@ function submitAnswer(){
     return;
   }
 
-  // attempt 3 and still not correct: show worked solution and move on
-  const solutionHtml = `
-    <div style="margin-top:8px; font-weight:900;">Maximum attempts reached. Here is the correct balanced equation:</div>
-    <div class="eqBox chem" style="margin-top:10px;">${q.eqHTML.replace(/\u2192/g,'→')}</div>
-    <div class="steps" style="margin-top:8px;">${escapeHtml(q.steps)}</div>
+  // attempt 3 and still not correct: review mode (no partial summary)
+  const coefText = (n)=> (n===1 ? '' : String(n));
+
+  function buildEqHTML(coeffs){
+    const pieces = [];
+    // reactants
+    q.reactants.forEach((c,i)=>{
+      pieces.push(`${coefText(coeffs[i])}${formatEquationHTML(c)}`);
+      if(i<q.reactants.length-1) pieces.push(' + ');
+    });
+    pieces.push(' → ');
+    // products
+    q.products.forEach((c,i)=>{
+      const idx = q.reactants.length + i;
+      pieces.push(`${coefText(coeffs[idx])}${formatEquationHTML(c)}`);
+      if(i<q.products.length-1) pieces.push(' + ');
+    });
+    return pieces.join('');
+  }
+
+  const userEq = buildEqHTML(userCoeffs);
+  const correctEq = buildEqHTML(q.answer);
+
+  const reviewHtml = `
+    <div style="font-weight:1000; margin-top:6px;">You said this:</div>
+    <div class="eqBox chem" style="margin-top:8px;">${userEq}</div>
+
+    <div style="font-weight:1000; margin-top:12px;">This is the correct solution:</div>
+    <div class="eqBox chem" style="margin-top:8px;">${correctEq}</div>
   `;
 
-  // show solution regardless of "Show steps" toggle
-  const msg = `✗ Not yet. ${numOk} of ${total} coefficients are correct.`;
-  q._lastFeedback = {ok:false, message: msg, stepsHtml: solutionHtml};
-  // renderFeedback expects stepsHtml to be plain; we bypass by writing directly:
+  // show review (keep inputs disabled)
   const fb = document.getElementById('feedbackBox');
   fb.className = 'feedback bad';
-  fb.innerHTML = msg + solutionHtml;
+  fb.innerHTML = reviewHtml;
   fb.style.display = 'block';
-
-  // keep inputs disabled in review mode
-  setBalancingInputsDisabled(q, true);
 
   // advance without awarding point
   app.qIndex++;
