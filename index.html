@@ -527,6 +527,7 @@ const app = {
   qIndex: 0,
   correct: 0,
   current: null,
+  showSteps: false
 };
 
 function showScreen(id){
@@ -579,6 +580,8 @@ function restartSet(fromStart=false){
   nextQuestion(true);
 }
 
+document.getElementById('showStepsChk').addEventListener('change', (e) => {
+  app.showSteps = !!e.target.checked;
   // if feedback already shown, re-render it with/without steps
   if(app.current && app.current._lastFeedback){
     renderFeedback(app.current._lastFeedback.ok, app.current._lastFeedback.message, app.current._lastFeedback.stepsHtml);
@@ -1078,6 +1081,8 @@ document.getElementById('titleTap').addEventListener('click', () => {
   tapCount++;
   if(tapCount === 7){
     // enable steps by default as a hidden teacher-ish shortcut
+    document.getElementById('showStepsChk').checked = true;
+    app.showSteps = true;
     if(app.current && app.current._lastFeedback){
       renderFeedback(app.current._lastFeedback.ok, app.current._lastFeedback.message, app.current._lastFeedback.stepsHtml);
     }
