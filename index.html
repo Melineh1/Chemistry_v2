@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chemistry Practice</title>
+  <style>
+    :root{
+      --bg1:#11998e; --bg2:#38ef7d;
+      --ink:#1b1f23; --muted:#5b6670;
+      --card:#ffffff; --soft:#f6f8fa;
+      --accent:#11998e; --warn:#ffc107;
+      --okbg:#d4edda; --ok:#155724; --okbd:#c3e6cb;
+      --badbg:#f8d7da; --bad:#721c24; --badbd:#f5c6cb;
+      --react:#e7f3ff; --prod:#eafff1;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:16px;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      min-height:100vh;
+      color:var(--ink);
+    }
+    .container{
+      max-width:980px; margin:0 auto;
+      background:var(--card);
+      border-radius:16px;
+      box-shadow:0 12px 44px rgba(0,0,0,.20);
+      padding:22px;
+    }
+    header{
+      display:flex; flex-direction:column; gap:6px;
+      align-items:center; text-align:center;
+      margin-bottom:12px;
+    }
+    h1{margin:0; font-size:2rem; color:var(--accent); letter-spacing:.2px;}
+    .sub{margin:0; color:var(--muted); font-size:1rem;}
+    .pillrow{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:8px;}
+    .pill{
+      background:var(--soft);
+      border:1px solid #e6eaef;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:.92rem;
+      display:flex; align-items:center; gap:8px;
+    }
+    .pill b{color:var(--accent)}
+    .row{display:flex; gap:16px; flex-wrap:wrap;}
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+    .cardbtn{
+      text-align:left;
+      border:2px solid #e6eaef;
+      background:var(--card);
+      border-radius:14px;
+      padding:14px;
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      min-height:86px;
+    }
+    .cardbtn:hover{transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,.08); border-color:#cfe7e4;}
+    .cardbtn:active{transform:none}
+    .cardbtn .title{font-size:1.08rem; font-weight:800; margin:0 0 6px 0; color:#123;}
+    .cardbtn .desc{margin:0; color:var(--muted); font-size:.95rem; line-height:1.25rem;}
+    .primary{
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:white;
+      border:none;
+      padding:12px 18px;
+      border-radius:10px;
+      font-size:1rem;
+      font-weight:800;
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease;
+    }
+    .primary:hover{transform:translateY(-1px); box-shadow:0 8px 18px rgba(17,153,142,.35);}
+    .secondary{
+      background:#6c757d;
+      color:white;
+      border:none;
+      padding:12px 18px;
+      border-radius:10px;
+      font-size:1rem;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .ghost{
+      background:transparent;
+      border:2px solid #e6eaef;
+      padding:10px 14px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:700;
+      color:#234;
+    }
+    .screen{display:none}
+    .screen.active{display:block}
+    .practiceTop{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; flex-wrap:wrap;
+      margin-top:8px;
+      padding:10px;
+      border-radius:12px;
+      background:var(--soft);
+      border:1px solid #e6eaef;
+    }
+    .practiceTop .left{display:flex; flex-direction:column; gap:4px;}
+    .practiceTop .mode{font-weight:900; color:#123;}
+    .practiceTop .progress{color:var(--muted); font-size:.95rem;}
+    .practiceTop .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+    label.chk{display:flex; align-items:center; gap:8px; font-weight:700; color:#234; font-size:.95rem;}
+    input[type="checkbox"]{width:18px; height:18px; cursor:pointer;}
+    .questionCard{
+      margin-top:12px;
+      border-radius:14px;
+      border:1px solid #e6eaef;
+      background:var(--card);
+      padding:14px;
+    }
+    .qPrompt{
+      font-size:1.10rem;
+      font-weight:800;
+      margin:0 0 10px 0;
+      color:#123;
+      line-height:1.35rem;
+    }
+    .eqBox{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      font-size:1.15rem;
+      background:var(--soft);
+      border:1px solid #e6eaef;
+      padding:12px;
+      border-radius:10px;
+      overflow-x:auto;
+    }
+    .hintRow{margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .hintBtn{
+      background:var(--warn);
+      border:none;
+      color:#222;
+      font-weight:900;
+      padding:10px 14px;
+      border-radius:10px;
+      cursor:pointer;
+    }
+    .hint{
+      display:none;
+      background:#fff3cd;
+      border:1px solid var(--warn);
+      padding:12px;
+      border-radius:10px;
+      margin-top:10px;
+      color:#6b5b2a;
+      line-height:1.25rem;
+    }
+    .hint.show{display:block}
+    .answerArea{margin-top:12px;}
+    .answerRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .answerRow input[type="number"]{
+      font-size:1.15rem;
+      padding:12px 12px;
+      border-radius:10px;
+      border:2px solid #d5dbe1;
+      width:180px;
+    }
+    .answerRow input[type="number"]:focus{
+      outline:none; border-color:var(--accent);
+    }
+    .units{color:var(--muted); font-weight:700;}
+    .balanceWrap{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+    .side{
+      border-radius:12px;
+      padding:12px;
+      border:1px solid #e6eaef;
+    }
+    .side.reactants{background:var(--react)}
+    .side.products{background:var(--prod)}
+    .side h3{margin:0 0 8px 0; font-size:1rem; color:#123;}
+    .compoundRow{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:10px 0;
+    }
+    .compoundRow input{
+      width:92px;
+      font-size:1.15rem;
+      padding:10px 10px;
+      border-radius:10px;
+      border:2px solid #d5dbe1;
+    }
+    .compoundRow input:focus{outline:none; border-color:var(--accent);}
+    .plus{font-weight:900; color:#234; margin-left:4px;}
+    .arrow{
+      text-align:center;
+      font-weight:900;
+      font-size:1.2rem;
+      color:#234;
+      margin:4px 0;
+    }
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-start;
+      margin-top:12px;
+    }
+    .feedback{
+      display:none;
+      margin-top:12px;
+      padding:12px;
+      border-radius:12px;
+      font-weight:900;
+      line-height:1.25rem;
+    }
+    .feedback.ok{display:block; background:var(--okbg); color:var(--ok); border:1px solid var(--okbd);}
+    .feedback.bad{display:block; background:var(--badbg); color:var(--bad); border:1px solid var(--badbd);}
+    .steps{
+      margin-top:8px;
+      font-weight:700;
+      color:#233;
+      line-height:1.25rem;
+    }
+    .summary{
+      margin-top:12px;
+      border-radius:14px;
+      border:1px solid #e6eaef;
+      background:var(--soft);
+      padding:14px;
+    }
+    .summary h2{margin:0 0 8px 0; color:var(--accent);}
+    .bigScore{
+      font-size:2.2rem;
+      font-weight:1000;
+      color:#0b7b70;
+      margin:6px 0 8px 0;
+    }
+    .note{color:var(--muted); margin:0; line-height:1.25rem;}
+    .footerRow{
+      margin-top:14px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:10px;
+      color:var(--muted);
+      font-size:.92rem;
+    }
+
+    /* Subscripts in formulas */
+    .chem sub{font-size:.75em; vertical-align:baseline; position:relative; bottom:-0.2em;}
+
+    @media (max-width:720px){
+      .container{padding:16px}
+      h1{font-size:1.7rem}
+      .grid{grid-template-columns:1fr}
+      .answerRow input[type="number"]{width:100%}
+      .compoundRow input{width:104px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1 id="titleTap">Chemistry Practice</h1>
+      <p class="sub">One question at a time • fast feedback • phone-friendly</p>
+      <div class="pillrow" id="pillrow" style="display:none;">
+        <div class="pill">Set score: <b id="setScore">0 / 0</b></div>
+        <div class="pill">Accuracy: <b id="setAcc">0%</b></div>
+      </div>
+    </header>
+
+    <!-- HOME -->
+    <section class="screen active" id="homeScreen">
+      <p style="margin:0; color:var(--muted); line-height:1.35rem;">
+        Pick a practice type. You’ll get <b>5 questions</b>. Results show at the end.
+      </p>
+
+      <div class="grid" style="margin-top:14px;">
+        <button class="cardbtn" onclick="startPractice('balancing')">
+          <p class="title">Balancing equations</p>
+          <p class="desc">Enter coefficients. Lowest whole-number ratio expected.</p>
+        </button>
+
+        <button class="cardbtn" onclick="startPractice('mole-to-mole')">
+          <p class="title">Mole ratio</p>
+          <p class="desc">Moles of reactant → moles of product using the balanced equation.</p>
+        </button>
+
+        <button class="cardbtn" onclick="startPractice('mole-to-mass')">
+          <p class="title">Mole → mass</p>
+          <p class="desc">Moles of reactant → grams of product using molar mass + mole ratio.</p>
+        </button>
+
+        <button class="cardbtn" onclick="startPractice('mass-to-mass')">
+          <p class="title">Mass → mass</p>
+          <p class="desc">Grams of reactant → grams of product using molar mass + mole ratio.</p>
+        </button>
+      </div>
+
+      <div class="footerRow" style="margin-top:16px;">
+        <span>Tip: Use the hint if you get stuck.</span>
+        <button class="ghost" onclick="showQuickHelp()">Quick help</button>
+      </div>
+
+      <div id="quickHelp" class="hint" style="display:none; margin-top:12px;">
+        <b>Balancing:</b> count atoms on each side; start with the most complex compound.<br>
+        <b>Stoichiometry:</b> use the mole ratio from the balanced equation; convert with molar mass when needed.
+      </div>
+    </section>
+
+    <!-- PRACTICE -->
+    <section class="screen" id="practiceScreen">
+      <div class="practiceTop">
+        <div class="left">
+          <div class="mode" id="modeLabel">Practice</div>
+          <div class="progress" id="progressLabel">Question 1 of 5</div>
+        </div>
+        <div class="right">
+          <label class="chk" title="Shows solution steps after you submit.">
+            <input type="checkbox" id="showStepsChk" />
+            Show steps
+          </label>
+          <button class="ghost" onclick="backToHome()">Change type</button>
+        </div>
+      </div>
+
+      <div class="questionCard" id="questionCard"></div>
+
+      <div class="actions" id="actionRow">
+        <button class="primary" id="submitBtn" onclick="submitAnswer()">Submit</button>
+        <button class="secondary" id="nextBtn" onclick="nextQuestion()" style="display:none;">Next</button>
+        <button class="ghost" onclick="restartSet()">Restart set</button>
+      </div>
+
+      <div class="feedback" id="feedbackBox"></div>
+    </section>
+
+    <!-- SUMMARY -->
+    <section class="screen" id="summaryScreen">
+      <div class="summary">
+        <h2>Set results</h2>
+        <div class="bigScore" id="finalScore">0 / 5</div>
+        <p class="note" id="finalNote">Accuracy: 0%</p>
+      </div>
+      <div class="actions">
+        <button class="primary" onclick="restartSet()">Practice again (same type)</button>
+        <button class="ghost" onclick="backToHome()">Pick a different type</button>
+      </div>
+    </section>
+  </div>
+
+<script>
+/* -------------------------------
+   DATA: atomic masses + reactions
+-------------------------------- */
+const atomicMasses = {
+  H: 1.008, He: 4.003, C: 12.011, N: 14.007, O: 15.999, F: 19.00, Ne: 20.18,
+  Na: 22.990, Mg: 24.305, Al: 26.982, Si: 28.086, P: 30.974, S: 32.06, Cl: 35.453,
+  K: 39.098, Ca: 40.078, Fe: 55.845, Cu: 63.546, Zn: 65.38, Ag: 107.868, Ba: 137.327,
+  Cr: 51.996
+};
+
+const reactionPools = {
+  easy: [
+    { reactants: ['2H2','O2'], products: ['2H2O'], type: 'synthesis' },
+    { reactants: ['CH4','2O2'], products: ['CO2','2H2O'], type: 'combustion' },
+    { reactants: ['2Na','Cl2'], products: ['2NaCl'], type: 'synthesis' },
+    { reactants: ['Zn','2HCl'], products: ['ZnCl2','H2'], type: 'single replacement' },
+    { reactants: ['HCl','NaOH'], products: ['NaCl','H2O'], type: 'double replacement' }
+  ],
+  medium: [
+    { reactants: ['2KClO3'], products: ['2KCl','3O2'], type: 'decomposition' },
+    { reactants: ['2Al','3Cl2'], products: ['2AlCl3'], type: 'synthesis' },
+    { reactants: ['BaCl2','Na2SO4'], products: ['2NaCl','BaSO4'], type: 'double replacement' },
+    { reactants: ['C3H8','5O2'], products: ['3CO2','4H2O'], type: 'combustion' },
+    { reactants: ['Cu','2AgNO3'], products: ['Cu(NO3)2','2Ag'], type: 'single replacement' }
+  ],
+  hard: [
+    { reactants: ['Fe2O3','3CO'], products: ['2Fe','3CO2'], type: 'single replacement' },
+    { reactants: ['2Na3PO4','3CaCl2'], products: ['Ca3(PO4)2','6NaCl'], type: 'double replacement' },
+    { reactants: ['2Al(OH)3'], products: ['Al2O3','3H2O'], type: 'decomposition' },
+    { reactants: ['2C2H6','7O2'], products: ['4CO2','6H2O'], type: 'combustion' },
+    { reactants: ['FeCl3','3NaOH'], products: ['Fe(OH)3','3NaCl'], type: 'double replacement' }
+  ],
+  evil: [
+    { reactants: ['2Fe2(SO4)3','6H2O'], products: ['4Fe(OH)3','6H2SO4'], type: 'double replacement' },
+    { reactants: ['(NH4)2Cr2O7'], products: ['Cr2O3','N2','4H2O'], type: 'decomposition' },
+    { reactants: ['2Al','3CuSO4'], products: ['Al2(SO4)3','3Cu'], type: 'single replacement' },
+    { reactants: ['CaCO3','2HCl'], products: ['CaCl2','H2O','CO2'], type: 'double replacement' },
+    { reactants: ['4NH3','5O2'], products: ['4NO','6H2O'], type: 'combustion' }
+  ]
+};
+
+function pickOne(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+/* -------------------------------
+   CHEM HELPERS
+-------------------------------- */
+function escapeHtml(str) {
+  return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'","&#39;");
+}
+function formatFormulaHTML(s){
+  // subscript digits after element or ')'
+  return String(s).replace(/([A-Za-z\)])(\d+)/g,'$1<sub>$2</sub>');
+}
+function formatEquationHTML(eq){ return formatFormulaHTML(eq); }
+
+function calcMolarMass(formula){
+  let i = 0;
+  function parseGroup(){
+    const counts = {};
+    while(i < formula.length){
+      const ch = formula[i];
+      if(ch === '('){
+        i++;
+        const inner = parseGroup();
+        i++; // ')'
+        const mult = parseNum() || 1;
+        for(const el in inner) counts[el] = (counts[el]||0) + inner[el]*mult;
+        continue;
+      }
+      if(ch === ')') break;
+      const el = parseEl();
+      const n = parseNum() || 1;
+      counts[el] = (counts[el]||0) + n;
+    }
+    return counts;
+  }
+  function parseEl(){
+    let el = formula[i++];
+    if(i < formula.length && /[a-z]/.test(formula[i])) el += formula[i++];
+    return el;
+  }
+  function parseNum(){
+    let s = i;
+    while(i < formula.length && /\d/.test(formula[i])) i++;
+    return s === i ? null : parseInt(formula.slice(s,i),10);
+  }
+  const counts = parseGroup();
+  let mass = 0;
+  for(const el in counts){
+    if(!atomicMasses[el]) throw new Error('Unknown element: ' + el);
+    mass += atomicMasses[el] * counts[el];
+  }
+  return mass;
+}
+
+/* -------------------------------
+   APP STATE
+-------------------------------- */
+const app = {
+  practiceType: null, // 'balancing' | 'mole-to-mole' | 'mole-to-mass' | 'mass-to-mass'
+  setSize: 5,
+  qIndex: 0,
+  correct: 0,
+  current: null,
+  showSteps: false
+};
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showQuickHelp(){
+  const el = document.getElementById('quickHelp');
+  el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+}
+
+function backToHome(){
+  showScreen('homeScreen');
+  document.getElementById('pillrow').style.display = 'none';
+}
+
+function startPractice(type){
+  app.practiceType = type;
+  restartSet(true);
+}
+
+function restartSet(fromStart=false){
+  if(!app.practiceType && !fromStart){
+    backToHome(); return;
+  }
+  app.qIndex = 0;
+  app.correct = 0;
+  app.current = null;
+  document.getElementById('feedbackBox').className = 'feedback';
+  document.getElementById('feedbackBox').style.display = 'none';
+  document.getElementById('nextBtn').style.display = 'none';
+  document.getElementById('submitBtn').style.display = 'inline-block';
+  document.getElementById('pillrow').style.display = 'none';
+
+  // label
+  const labelMap = {
+    'balancing': 'Balancing equations',
+    'mole-to-mole': 'Mole ratio',
+    'mole-to-mass': 'Mole → mass',
+    'mass-to-mass': 'Mass → mass'
+  };
+  document.getElementById('modeLabel').textContent = labelMap[app.practiceType] || 'Practice';
+
+  showScreen('practiceScreen');
+  nextQuestion(true);
+}
+
+document.getElementById('showStepsChk').addEventListener('change', (e) => {
+  app.showSteps = !!e.target.checked;
+  // if feedback already shown, re-render it with/without steps
+  if(app.current && app.current._lastFeedback){
+    renderFeedback(app.current._lastFeedback.ok, app.current._lastFeedback.message, app.current._lastFeedback.stepsHtml);
+  }
+});
+
+/* -------------------------------
+   QUESTION GENERATION (1 at a time)
+-------------------------------- */
+function getReactionForStoich(){
+  // based on practice type, widen pools a bit
+  const pools = (app.practiceType === 'mass-to-mass')
+    ? ['medium','hard','evil']
+    : (app.practiceType === 'mole-to-mass')
+      ? ['easy','medium','hard']
+      : ['easy','medium'];
+  const bag = [];
+  pools.forEach(k => bag.push(...reactionPools[k]));
+  return pickOne(bag);
+}
+
+function getReactionForBalancing(){
+  // balancing: standard breadth, includes harder for variety but not constant "evil"
+  const pools = ['easy','medium','hard'];
+  const bag = [];
+  pools.forEach(k => bag.push(...reactionPools[k]));
+  return pickOne(bag);
+}
+
+function generateStoichQuestion(kind){
+  const reaction = getReactionForStoich();
+
+  // given (reactant) -> find (product)
+  const givenCompound = pickOne(reaction.reactants);
+  const givenFormula  = givenCompound.replace(/^(\d+)/,'');
+  const givenCoeff    = parseFloat((givenCompound.match(/^(\d+)/)||[])[1] || 1);
+
+  const distinctProducts = reaction.products.filter(c => c.replace(/^(\d+)/,'') !== givenFormula);
+  const productPool = distinctProducts.length ? distinctProducts : reaction.products;
+
+  const findCompound = pickOne(productPool);
+  const findFormula  = findCompound.replace(/^(\d+)/,'');
+  const findCoeff    = parseFloat((findCompound.match(/^(\d+)/)||[])[1] || 1);
+
+  const eqPlain = reaction.reactants.join(' + ') + ' \u2192 ' + reaction.products.join(' + ');
+  const eqHTML  = formatEquationHTML(eqPlain);
+
+  let promptHtml = '';
+  let answer = 0;
+  let tol = 0.5;
+  let unitsHtml = '';
+  let steps = '';
+  let hintExtra = '';
+
+  if(kind === 'mole-to-mole'){
+    const givenAmount = Number(((Math.random()*9.5)+0.5).toFixed(1));
+    answer = Number((givenAmount * findCoeff / givenCoeff).toFixed(3));
+    tol = 0.5;
+    promptHtml = `If you have <b>${givenAmount} moles</b> of <span class="chem">${formatEquationHTML(givenFormula)}</span>, how many <b>moles</b> of <span class="chem">${formatEquationHTML(findFormula)}</span> can be produced?`;
+    unitsHtml = `moles of <span class="chem">${formatEquationHTML(findFormula)}</span>`;
+    steps = `${givenAmount} mol ${givenFormula} × (${findCoeff} mol ${findFormula} / ${givenCoeff} mol ${givenFormula}) = ${answer} mol ${findFormula}`;
+    hintExtra = `<b>Mole ratio:</b> ${findCoeff} mol <span class="chem">${formatEquationHTML(findFormula)}</span> per ${givenCoeff} mol <span class="chem">${formatEquationHTML(givenFormula)}</span>`;
+
+  }else if(kind === 'mole-to-mass'){
+    const mmFind = calcMolarMass(findFormula);
+    const givenAmount = Number(((Math.random()*9.5)+0.5).toFixed(1));
+    const molesFind = givenAmount * findCoeff / givenCoeff;
+    answer = Number((molesFind * mmFind).toFixed(2));
+    tol = answer * 0.02;
+    promptHtml = `If you have <b>${givenAmount} moles</b> of <span class="chem">${formatEquationHTML(givenFormula)}</span>, how many <b>grams</b> of <span class="chem">${formatEquationHTML(findFormula)}</span> can be produced?`;
+    unitsHtml = `grams of <span class="chem">${formatEquationHTML(findFormula)}</span>`;
+    steps = `${givenAmount} mol ${givenFormula} × (${findCoeff}/${givenCoeff}) = ${molesFind.toFixed(4)} mol ${findFormula}; × ${mmFind.toFixed(3)} g/mol = ${answer} g`;
+    hintExtra = `<b>Mole ratio:</b> ${findCoeff} mol <span class="chem">${formatEquationHTML(findFormula)}</span> per ${givenCoeff} mol <span class="chem">${formatEquationHTML(givenFormula)}</span><br><b>Molar mass of <span class="chem">${formatEquationHTML(findFormula)}</span>:</b> ${mmFind.toFixed(3)} g/mol`;
+
+  }else{ // mass-to-mass
+    const mmGiven = calcMolarMass(givenFormula);
+    const mmFind  = calcMolarMass(findFormula);
+    const gramsGiven = Number((Math.random()*195 + 5).toFixed(1));
+    const molesGiven = gramsGiven / mmGiven;
+    const molesFind  = molesGiven * findCoeff / givenCoeff;
+    answer = Number((molesFind * mmFind).toFixed(2));
+    tol = answer * 0.02;
+    promptHtml = `If you have <b>${gramsGiven} grams</b> of <span class="chem">${formatEquationHTML(givenFormula)}</span>, how many <b>grams</b> of <span class="chem">${formatEquationHTML(findFormula)}</span> can be produced?`;
+    unitsHtml = `grams of <span class="chem">${formatEquationHTML(findFormula)}</span>`;
+    steps = `${gramsGiven} g ${givenFormula} ÷ ${mmGiven.toFixed(3)} g/mol = ${molesGiven.toFixed(4)} mol; × (${findCoeff}/${givenCoeff}) = ${molesFind.toFixed(4)} mol ${findFormula}; × ${mmFind.toFixed(3)} g/mol = ${answer} g`;
+    hintExtra = `<b>Molar mass of <span class="chem">${formatEquationHTML(givenFormula)}</span>:</b> ${mmGiven.toFixed(3)} g/mol<br><b>Mole ratio:</b> ${findCoeff} mol <span class="chem">${formatEquationHTML(findFormula)}</span> per ${givenCoeff} mol <span class="chem">${formatEquationHTML(givenFormula)}</span><br><b>Molar mass of <span class="chem">${formatEquationHTML(findFormula)}</span>:</b> ${mmFind.toFixed(3)} g/mol`;
+  }
+
+  return {
+    type:'stoich',
+    kind,
+    eqHTML,
+    promptHtml,
+    answer,
+    tol,
+    unitsHtml,
+    steps,
+    hintHtml: `<b>Balanced equation:</b> <span class="chem">${eqHTML}</span><br>${hintExtra}`
+  };
+}
+
+function generateBalancingQuestion(){
+  const reaction = getReactionForBalancing();
+
+  const reactants = reaction.reactants.map(r => r.replace(/^(\d+)/,''));
+  const products  = reaction.products.map(p => p.replace(/^(\d+)/,''));
+  const correctCoeffs = reaction.reactants.concat(reaction.products).map(c => parseInt((c.match(/^(\d+)/)||[])[1] || 1, 10));
+
+  const eqPlain = reactants.join(' + ') + ' \u2192 ' + products.join(' + ');
+  const eqHTML = formatEquationHTML(eqPlain);
+
+  return {
+    type:'balancing',
+    reactants, products,
+    allCompounds: reactants.concat(products),
+    eqHTML,
+    answer: correctCoeffs,
+    steps: `Correct coefficients: ${reaction.reactants.join(' + ')} → ${reaction.products.join(' + ')}`,
+    hintHtml: `<b>Tip:</b> Count atoms on each side.<br><b>Strategy:</b> Start with the most complex compound.`
+  };
+}
+
+/* -------------------------------
+   RENDER
+-------------------------------- */
+function renderQuestion(q){
+  const card = document.getElementById('questionCard');
+  const feedback = document.getElementById('feedbackBox');
+  feedback.className = 'feedback';
+  feedback.style.display = 'none';
+
+  document.getElementById('progressLabel').textContent = `Question ${app.qIndex+1} of ${app.setSize}`;
+
+  if(q.type === 'stoich'){
+    card.innerHTML = `
+      <div class="qPrompt">${q.promptHtml}</div>
+      <div class="eqBox chem">${q.eqHTML}</div>
+
+      <div class="hintRow">
+        <button class="hintBtn" onclick="toggleHint()">💡 Hint</button>
+        <span style="color:var(--muted); font-weight:700;">Use the balanced equation.</span>
+      </div>
+      <div class="hint" id="hintBox">${q.hintHtml}</div>
+
+      <div class="answerArea">
+        <div class="answerRow">
+          <input type="number" step="0.01" id="stoichAnswer" inputmode="decimal" placeholder="Type your answer" />
+          <span class="units">${q.unitsHtml}</span>
+        </div>
+      </div>
+    `;
+    setTimeout(()=>document.getElementById('stoichAnswer')?.focus(), 50);
+  } else {
+    // balancing: stack reactants + products for readability
+    const rHtml = q.reactants.map((c,i)=> `
+      <div class="compoundRow">
+        <input type="number" min="1" step="1" inputmode="numeric" id="coef_r_${i}" placeholder="Coeff" />
+        <span class="chem">${formatEquationHTML(c)}</span>
+        ${i < q.reactants.length-1 ? '<span class="plus">+</span>' : ''}
+      </div>
+    `).join('');
+
+    const pHtml = q.products.map((c,i)=> `
+      <div class="compoundRow">
+        <input type="number" min="1" step="1" inputmode="numeric" id="coef_p_${i}" placeholder="Coeff" />
+        <span class="chem">${formatEquationHTML(c)}</span>
+        ${i < q.products.length-1 ? '<span class="plus">+</span>' : ''}
+      </div>
+    `).join('');
+
+    card.innerHTML = `
+      <div class="qPrompt">Balance this equation (enter coefficients):</div>
+      <div class="eqBox chem">${q.eqHTML}</div>
+
+      <div class="hintRow">
+        <button class="hintBtn" onclick="toggleHint()">💡 Hint</button>
+        <span style="color:var(--muted); font-weight:700;">Lowest whole-number ratio expected.</span>
+      </div>
+      <div class="hint" id="hintBox">${q.hintHtml}</div>
+
+      <div class="balanceWrap">
+        <div class="side reactants">
+          <h3>Reactants</h3>
+          ${rHtml}
+        </div>
+
+        <div class="arrow">→</div>
+
+        <div class="side products">
+          <h3>Products</h3>
+          ${pHtml}
+        </div>
+      </div>
+    `;
+    setTimeout(()=>document.getElementById('coef_r_0')?.focus(), 50);
+  }
+}
+
+function toggleHint(){
+  const el = document.getElementById('hintBox');
+  if(el) el.classList.toggle('show');
+}
+
+function renderFeedback(ok, message, stepsHtml=''){
+  const fb = document.getElementById('feedbackBox');
+  fb.className = 'feedback ' + (ok ? 'ok' : 'bad');
+  let html = message;
+  if(app.showSteps && stepsHtml){
+    html += `<div class="steps">${stepsHtml}</div>`;
+  }
+  fb.innerHTML = html;
+  fb.style.display = 'block';
+
+  // scroll feedback into view on phones
+  setTimeout(()=>fb.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
+}
+
+function updatePills(){
+  document.getElementById('pillrow').style.display = 'flex';
+  document.getElementById('setScore').textContent = `${app.correct} / ${app.qIndex}`;
+  const acc = app.qIndex > 0 ? Math.round((app.correct/app.qIndex)*100) : 0;
+  document.getElementById('setAcc').textContent = `${acc}%`;
+}
+
+/* -------------------------------
+   FLOW
+-------------------------------- */
+function nextQuestion(isFirst=false){
+  if(app.qIndex >= app.setSize){
+    showSummary();
+    return;
+  }
+
+  document.getElementById('nextBtn').style.display = 'none';
+  document.getElementById('submitBtn').style.display = 'inline-block';
+
+  // generate one question
+  if(app.practiceType === 'balancing'){
+    app.current = generateBalancingQuestion();
+  } else {
+    app.current = generateStoichQuestion(app.practiceType);
+  }
+  app.current._lastFeedback = null;
+
+  renderQuestion(app.current);
+
+  if(!isFirst){
+    // show set score pills after question 2+ (progressive reveal)
+    if(app.qIndex >= 1) updatePills();
+  }
+}
+
+function submitAnswer(){
+  const q = app.current;
+  if(!q) return;
+
+  if(q.type === 'stoich'){
+    const input = document.getElementById('stoichAnswer');
+    const user = parseFloat(input?.value);
+    if(Number.isNaN(user)){
+      renderFeedback(false, 'Enter a number to submit.');
+      return;
+    }
+    const tol = q.tol ?? 0.5;
+    const ok = Math.abs(user - q.answer) <= tol;
+    const msg = ok ? '✓ Correct!' : '✗ Not quite.';
+    const steps = `${escapeHtml(q.steps)}<br><span style="color:var(--muted);">Accepted if within rounding tolerance (±${tol.toFixed(2)})</span>`;
+    q._lastFeedback = {ok, message: msg, stepsHtml: steps};
+    renderFeedback(ok, msg, steps);
+    if(ok) app.correct++;
+
+  } else {
+    // balancing
+    const userCoeffs = [];
+    // gather reactant coefficients then products
+    for(let i=0;i<q.reactants.length;i++){
+      const val = parseInt(document.getElementById(`coef_r_${i}`)?.value, 10);
+      if(Number.isNaN(val) || val < 1){
+        renderFeedback(false, 'Fill in all coefficients with whole numbers ≥ 1.');
+        return;
+      }
+      userCoeffs.push(val);
+    }
+    for(let i=0;i<q.products.length;i++){
+      const val = parseInt(document.getElementById(`coef_p_${i}`)?.value, 10);
+      if(Number.isNaN(val) || val < 1){
+        renderFeedback(false, 'Fill in all coefficients with whole numbers ≥ 1.');
+        return;
+      }
+      userCoeffs.push(val);
+    }
+    const ok = JSON.stringify(userCoeffs) === JSON.stringify(q.answer);
+    const msg = ok ? '✓ Correct!' : '✗ Not quite.';
+    const steps = `${escapeHtml(q.steps)}`;
+    q._lastFeedback = {ok, message: msg, stepsHtml: steps};
+    renderFeedback(ok, msg, steps);
+    if(ok) app.correct++;
+  }
+
+  // advance state
+  app.qIndex++;
+  updatePills();
+
+  document.getElementById('submitBtn').style.display = 'none';
+  document.getElementById('nextBtn').style.display = 'inline-block';
+
+  if(app.qIndex >= app.setSize){
+    document.getElementById('nextBtn').textContent = 'View results';
+  } else {
+    document.getElementById('nextBtn').textContent = 'Next';
+  }
+}
+
+function showSummary(){
+  showScreen('summaryScreen');
+  const acc = Math.round((app.correct/app.setSize)*100);
+  document.getElementById('finalScore').textContent = `${app.correct} / ${app.setSize}`;
+  document.getElementById('finalNote').textContent = `Accuracy: ${acc}%`;
+  document.getElementById('pillrow').style.display = 'flex';
+  document.getElementById('setScore').textContent = `${app.correct} / ${app.setSize}`;
+  document.getElementById('setAcc').textContent = `${acc}%`;
+}
+
+/* -------------------------------
+   SMALL UX: title tap easter egg (optional)
+   (kept harmless; no extra controls shown)
+-------------------------------- */
+let tapCount = 0;
+document.getElementById('titleTap').addEventListener('click', () => {
+  tapCount++;
+  if(tapCount === 7){
+    // enable steps by default as a hidden teacher-ish shortcut
+    document.getElementById('showStepsChk').checked = true;
+    app.showSteps = true;
+    if(app.current && app.current._lastFeedback){
+      renderFeedback(app.current._lastFeedback.ok, app.current._lastFeedback.message, app.current._lastFeedback.stepsHtml);
+    }
+    tapCount = 0;
+  }
+});
+</script>
+</body>
+</html>
