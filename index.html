@@ -789,6 +789,18 @@ function toggleHint(){
 }
 
 
+function setBalancingInputsDisabled(q, disabled){
+  if(!q || q.type !== 'balancing') return;
+  for(let i=0;i<q.reactants.length;i++){
+    const inp = document.getElementById(`coef_r_${i}`);
+    if(inp) inp.disabled = disabled;
+  }
+  for(let i=0;i<q.products.length;i++){
+    const inp = document.getElementById(`coef_p_${i}`);
+    if(inp) inp.disabled = disabled;
+  }
+}
+
 function clearBalancingMarks(q){
   if(!q || q.type !== 'balancing') return;
   for(let i=0;i<q.reactants.length;i++){
@@ -809,7 +821,9 @@ function tryAgain(){
   const fb = document.getElementById('feedbackBox');
   fb.className = 'feedback';
   fb.style.display = 'none';
+
   clearBalancingMarks(app.current);
+  setBalancingInputsDisabled(app.current, false);
 
   document.getElementById('tryAgainBtn').style.display = 'none';
   document.getElementById('submitBtn').style.display = 'inline-block';
@@ -836,16 +850,13 @@ function renderFeedback(ok, message, stepsHtml=''){
 }
 
 function updatePills(){
-  const scoreEl = document.getElementById('scorePill');
-  const accEl = document.getElementById('accuracyPill');
-
-  scoreEl.textContent = `Set score: ${app.correct} / ${app.qIndex}`;
+  document.getElementById('pillrow').style.display = 'flex';
+  document.getElementById('setScore').textContent = `${app.correct} / ${app.qIndex}`;
 
   const acc = app.firstAttempts > 0
     ? Math.round((app.firstCorrect / app.firstAttempts) * 100)
     : 0;
-
-  accEl.textContent = `Accuracy: ${acc}%`;
+  document.getElementById('setAcc').textContent = `${acc}%`;
 }
 
 /* -------------------------------
@@ -872,6 +883,7 @@ function nextQuestion(isFirst=false){
 
   renderQuestion(app.current);
   clearBalancingMarks(app.current);
+  setBalancingInputsDisabled(app.current, false);
 
   if(!isFirst){
     // show set score pills after question 2+ (progressive reveal)
@@ -883,6 +895,7 @@ function submitAnswer(){
   const q = app.current;
   if(!q) return;
 
+  // FIRST-TRY ACCURACY: count only the first time they submit on this question
   const isFirstAttempt = !q._attempted;
   if(isFirstAttempt){
     app.firstAttempts++;
@@ -903,6 +916,7 @@ function submitAnswer(){
     const steps = `${escapeHtml(q.steps)}<br><span style="color:var(--muted);">Accepted if within rounding tolerance (±${tol.toFixed(2)})</span>`;
     q._lastFeedback = {ok, message: msg, stepsHtml: steps};
     renderFeedback(ok, msg, steps);
+
     if(ok){
       app.correct++;
       if(isFirstAttempt) app.firstCorrect++;
@@ -919,7 +933,9 @@ function submitAnswer(){
     return;
   }
 
-  // BALANCING: keep same question until fully correct; show partial correctness
+  // BALANCING: attempt loop with max 3 attempts; lock inputs after submit
+  q._attemptCount = (q._attemptCount || 0) + 1;
+
   clearBalancingMarks(q);
 
   const correctness = [];
@@ -969,21 +985,61 @@ function submitAnswer(){
   const total = correctness.length;
   const allOk = numOk === total;
 
-  const msg = allOk ? '✓ Correct!' : `✗ Not yet. ${numOk} of ${total} coefficients are correct.`;
-  const steps = `${escapeHtml(q.steps)}`;
-  q._lastFeedback = {ok: allOk, message: msg, stepsHtml: steps};
-  renderFeedback(allOk, msg, steps);
+  // lock inputs after submit (prevents editing during feedback state)
+  setBalancingInputsDisabled(q, true);
 
-  if(!allOk){
+  if(allOk){
+    const msg = '✓ Correct!';
+    const steps = `${escapeHtml(q.steps)}`;
+    q._lastFeedback = {ok:true, message: msg, stepsHtml: steps};
+    renderFeedback(true, msg, steps);
+
+    app.correct++;
+    if(isFirstAttempt) app.firstCorrect++;
+
+    app.qIndex++;
+    updatePills();
+
+    document.getElementById('submitBtn').style.display = 'none';
+    document.getElementById('tryAgainBtn').style.display = 'none';
+    document.getElementById('nextBtn').style.display = 'inline-block';
+    document.getElementById('nextBtn').textContent = (app.qIndex >= app.setSize) ? 'View results' : 'Next';
+    return;
+  }
+
+  // not correct
+  if(q._attemptCount < 3){
+    const msg = `✗ Not yet. ${numOk} of ${total} coefficients are correct.`;
+    const steps = `${escapeHtml(q.steps)}`;
+    q._lastFeedback = {ok:false, message: msg, stepsHtml: steps};
+    renderFeedback(false, msg, steps);
+
     document.getElementById('submitBtn').style.display = 'none';
     document.getElementById('nextBtn').style.display = 'none';
     document.getElementById('tryAgainBtn').style.display = 'inline-block';
     return;
   }
 
-  // solved: count it and advance
-  if(isFirstAttempt) app.firstCorrect++;
-  app.correct++;
+  // attempt 3 and still not correct: show worked solution and move on
+  const solutionHtml = `
+    <div style="margin-top:8px; font-weight:900;">Maximum attempts reached. Here is the correct balanced equation:</div>
+    <div class="eqBox chem" style="margin-top:10px;">${q.eqHTML.replace(/\u2192/g,'→')}</div>
+    <div class="steps" style="margin-top:8px;">${escapeHtml(q.steps)}</div>
+  `;
+
+  // show solution regardless of "Show steps" toggle
+  const msg = `✗ Not yet. ${numOk} of ${total} coefficients are correct.`;
+  q._lastFeedback = {ok:false, message: msg, stepsHtml: solutionHtml};
+  // renderFeedback expects stepsHtml to be plain; we bypass by writing directly:
+  const fb = document.getElementById('feedbackBox');
+  fb.className = 'feedback bad';
+  fb.innerHTML = msg + solutionHtml;
+  fb.style.display = 'block';
+
+  // keep inputs disabled in review mode
+  setBalancingInputsDisabled(q, true);
+
+  // advance without awarding point
   app.qIndex++;
   updatePills();
 
@@ -995,9 +1051,9 @@ function submitAnswer(){
 
 function showSummary(){
   showScreen('summaryScreen');
-  const acc = Math.round((app.correct/app.setSize)*100);
+  const acc = app.firstAttempts > 0 ? Math.round((app.firstCorrect/app.firstAttempts)*100) : 0;
   document.getElementById('finalScore').textContent = `${app.correct} / ${app.setSize}`;
-  document.getElementById('finalNote').textContent = `Accuracy: ${acc}%`;
+  document.getElementById('finalNote').textContent = `Accuracy (first try): ${acc}%`;
   document.getElementById('pillrow').style.display = 'flex';
   document.getElementById('setScore').textContent = `${app.correct} / ${app.setSize}`;
   document.getElementById('setAcc').textContent = `${acc}%`;
